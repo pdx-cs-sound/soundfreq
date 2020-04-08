@@ -23,8 +23,13 @@ def read_wave(filename):
     return (info, float_samples)
 
 info, samples = read_wave(sys.argv[1])
+
 size = 4096
-myfft = fftpack.fft(samples[:size])
+samples = samples[:size]
+for i in range(size):
+    samples[i] *= math.sin(math.pi * i / (size - 1))
+
+myfft = fftpack.fft(samples)
 assert len(myfft) == size
 
 # https://matplotlib.org/3.2.1/gallery/user_interfaces/
