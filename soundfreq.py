@@ -36,8 +36,8 @@ assert len(myfft) == size
 #   embedding_in_tk_sgskip.html
 fig = plt.figure(figsize=(12, 8), dpi=100)
 fplot = fig.add_subplot(1, 1, 1)
-xs = list(range(size // 2))
-ys = [20 * math.log10(abs(myfft[i])) for i in range(size // 2)]
+xs = [info.framerate * x / size for x in range(size // 2)]
+ys = [20 * math.log10(abs(myfft[i] * 2 / size)) for i in range(size // 2)]
 fplot.plot(xs, ys)
 
 canvas = FigureCanvasTkAgg(fig, master=window)
