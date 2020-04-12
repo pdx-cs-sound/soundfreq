@@ -1,6 +1,9 @@
+import tkinter
 from tkinter import *
-from scipy import fftpack
-import math, numpy
+from pylab import *
+from scipy import signal
+import math
+import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import *
 
@@ -8,32 +11,49 @@ window = Tk()
 window.title("filtersweep")
 window.protocol("WM_DELETE_WINDOW", window.quit)
 
-def filter(xs):
-    yield 0
-    for i in range(1, len(xs)):
-        yield 0.5 * (xs[i-1] + xs[i])
+def avg(xs, n):
+    avg = xs[:-n]
+    for i in range(1, n):
+        avg += xs[i:-n+i]
+    np.append(avg, [0] * n)
+    return avg / n
+
+def windowed(xs, n):
+    taps = signal.firwin(n, 0.1, window='hanning')
+    return signal.convolve(xs, taps, mode='same')
 
 nsamples = 48000
-step = 200
+step = 100
+fsamples = nsamples / step
 
-sweeps = [[], []]
-myfs = []
-for f in range(1, nsamples // 2, step):
-    myfs.append(f)
-    samples = [math.sin(2 * math.pi * i * f / nsamples)
-               for i in range(nsamples)]
-    peak1 = max(filter(samples))
-    sweeps[0].append(peak1)
-    peak2 = max(filter(list(filter(samples))))
-    sweeps[1].append(peak2)
+filter_orders = [
+    "avg 2",
+    "avg 3",
+    "window 3",
+    "avg 9",
+    "window 9",
+    "2× avg 3",
+]
+
+myfs = np.linspace(1, nsamples / 2, num=fsamples, endpoint=False)
+sin_t = np.linspace(0, nsamples, num=nsamples)
+sweeps = [[] for _ in range(len(filter_orders))]
+for f in myfs:
+    sine = np.sin(2 * math.pi * f * sin_t)
+    sweeps[0].append(max(avg(sine, 2)))
+    sweeps[1].append(max(avg(sine, 3)))
+    sweeps[2].append(max(windowed(sine, 3)))
+    sweeps[3].append(max(avg(sine, 9)))
+    sweeps[4].append(max(windowed(sine, 9)))
+    sweeps[5].append(max(avg(avg(sine, 3), 3)))
 
 size = len(myfs)
 
-def linear_scale(y):
-    return y
+def linear_scale(ys):
+    return ys
 
-def db_scale(y):
-    return 20 * math.log10(y)
+def db_scale(ys):
+    return 20 * np.log10(ys)
 
 # https://matplotlib.org/3.2.1/gallery/user_interfaces/
 #   embedding_in_tk_sgskip.html
@@ -43,7 +63,7 @@ xs = myfs
 scale = db_scale
 fo = 0
 def plot_ys():
-    ys = [scale(sweeps[fo][i]) for i in range(size)]
+    ys = scale(sweeps[fo])
     fplot.clear()
     fplot.plot(xs, ys)
 
@@ -64,17 +84,12 @@ def change_mode():
     canvas.draw()
     button.configure(text=ampl_mode)
 
-filter_order = "order 1"
+filter_order = filter_orders[0]
 def change_order():
     global filter_order, obutton, fo, canvas
-    if fo == 0:
-        filter_order = "order 2"
-        fo = 1
-    elif fo == 1:
-        filter_order = "order 1"
-        fo = 0
-    else:
-        assert False
+    assert fo < len(filter_orders)
+    fo = (fo + 1) % len(filter_orders)
+    filter_order = filter_orders[fo]
     plot_ys()
     canvas.draw()
     obutton.configure(text=filter_order)
@@ -83,13 +98,13 @@ canvas = FigureCanvasTkAgg(fig, master=window)
 canvas.draw()
 toolbar = NavigationToolbar2Tk(canvas, window)
 toolbar.update()
-button = Button(
+button = tkinter.Button(
     master=window,
     text=ampl_mode,
     command=change_mode,
 )
 button.pack(side=BOTTOM)
-obutton = Button(
+obutton = tkinter.Button(
     master=window,
     text=filter_order,
     command=change_order,
