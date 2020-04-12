@@ -11,49 +11,44 @@ window = Tk()
 window.title("filtersweep")
 window.protocol("WM_DELETE_WINDOW", window.quit)
 
-def avg(xs, n):
-    avg = xs[:-n]
-    for i in range(1, n):
-        avg += xs[i:-n+i]
-    np.append(avg, [0] * n)
-    return avg / n
+sfreq = 48000
+nfreq = sfreq // 2
+fsamples = nfreq // 10
 
-def windowed(xs, n):
-    taps = signal.firwin(n, 0.1, window='hanning')
-    return signal.convolve(xs, taps, mode='same')
+def avg_coeffs(n):
+    return np.array([1/n] * n)
 
-nsamples = 48000
-step = 100
-fsamples = nsamples / step
+def window_coeffs(n, beta=0.5):
+    return signal.firwin(n, 0.1, window=('kaiser', beta), scale=True)
 
-filter_orders = [
-    "avg 2",
-    "avg 3",
-    "window 3",
-    "avg 9",
-    "window 9",
-    "2× avg 3",
-]
+nopt, bopt = signal.kaiserord(-20, 10 / nfreq)
 
-myfs = np.linspace(1, nsamples / 2, num=fsamples, endpoint=False)
-sin_t = np.linspace(0, nsamples, num=nsamples)
-sweeps = [[] for _ in range(len(filter_orders))]
-for f in myfs:
-    sine = np.sin(2 * math.pi * f * sin_t)
-    sweeps[0].append(max(avg(sine, 2)))
-    sweeps[1].append(max(avg(sine, 3)))
-    sweeps[2].append(max(windowed(sine, 3)))
-    sweeps[3].append(max(avg(sine, 9)))
-    sweeps[4].append(max(windowed(sine, 9)))
-    sweeps[5].append(max(avg(avg(sine, 3), 3)))
+filters = (
+    ("avg 2", avg_coeffs(2)),
+    ("avg 3", avg_coeffs(3)),
+    ("window 3", window_coeffs(3)),
+    ("avg 9", avg_coeffs(9)),
+    ("window 9", window_coeffs(9)),
+    (f"avg {nopt}", avg_coeffs(nopt)),
+    (f"window {nopt}", window_coeffs(nopt, beta=bopt)),
+)
 
-size = len(myfs)
+sweeps = []
+myfs = None
+for name, f in filters:
+    myfs, sweep = signal.freqz(f, worN=fsamples)
+    # print(name, f, sweep, np.absolute(sweep))
+    sweeps.append(np.absolute(sweep))
+myfs = myfs * nfreq / np.pi
+
+size = fsamples
 
 def linear_scale(ys):
     return ys
 
+eps = np.finfo(float).eps
 def db_scale(ys):
-    return 20 * np.log10(ys)
+    return 20 * np.nan_to_num(np.log10(ys + eps))
 
 # https://matplotlib.org/3.2.1/gallery/user_interfaces/
 #   embedding_in_tk_sgskip.html
@@ -84,33 +79,51 @@ def change_mode():
     canvas.draw()
     button.configure(text=ampl_mode)
 
-filter_order = filter_orders[0]
-def change_order():
-    global filter_order, obutton, fo, canvas
-    assert fo < len(filter_orders)
-    fo = (fo + 1) % len(filter_orders)
-    filter_order = filter_orders[fo]
+filter_order = filters[0][0]
+def change_order(dirn):
+    global filter_order, order, fo, canvas
+    nfilters = len(filters)
+    assert fo < nfilters
+    fo = (fo + nfilters + dirn) % nfilters
+    filter_order = filters[fo][0]
     plot_ys()
     canvas.draw()
-    obutton.configure(text=filter_order)
+    order.configure(text=filter_order)
 
 canvas = FigureCanvasTkAgg(fig, master=window)
 canvas.draw()
 toolbar = NavigationToolbar2Tk(canvas, window)
 toolbar.update()
+
+controls = tkinter.Frame(master=window)
+controls.pack(side=BOTTOM, fill=BOTH, expand=True)
+back_button = tkinter.Button(
+    master=window,
+    text="←",
+    command=lambda: change_order(-1),
+)
+back_button.pack(in_=controls, side=LEFT)
+forw_button = tkinter.Button(
+    master=window,
+    text="→",
+    command=lambda: change_order(1),
+)
+forw_button.pack(in_=controls, side=LEFT)
 button = tkinter.Button(
     master=window,
     text=ampl_mode,
     command=change_mode,
 )
-button.pack(side=BOTTOM)
-obutton = tkinter.Button(
+button.pack(in_=controls, side=LEFT)
+order = tkinter.Label(
     master=window,
     text=filter_order,
-    command=change_order,
 )
-obutton.pack(side=LEFT)
+order.pack(in_=controls, side=RIGHT)
 canvas.get_tk_widget().pack(side=TOP, fill=BOTH, expand=1)
 
-window.mainloop()
+try:
+    window.mainloop()
+except KeyboardInterrupt:
+    pass
 exit(0)
