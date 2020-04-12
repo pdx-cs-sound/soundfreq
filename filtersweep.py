@@ -18,19 +18,27 @@ fsamples = nfreq // 10
 def avg_coeffs(n):
     return np.array([1/n] * n)
 
-def window_coeffs(n, beta=0.5):
-    return signal.firwin(n, 0.1, window=('kaiser', beta), scale=True)
-
 nopt, bopt = signal.kaiserord(-20, 10 / nfreq)
+def kaiser_coeffs(n, beta=0.5):
+    return signal.firwin(n, 0.01, window=('kaiser', beta), scale=True)
+
+# https://plotly.com/python/v3/fft-filters/
+def win_sinc_coeffs(n, beta=0.5):
+    xs = np.arange(n)
+    sinc = np.sinc(2 * 0.01 * (xs - (n - 1)) / 2)
+    window = signal.windows.kaiser(n, beta)
+    sw = sinc * window
+    return sw / np.sum(sw)
 
 filters = (
     ("avg 2", avg_coeffs(2)),
     ("avg 3", avg_coeffs(3)),
-    ("window 3", window_coeffs(3)),
+    ("kaiser 3 (0.5)", kaiser_coeffs(3)),
     ("avg 9", avg_coeffs(9)),
-    ("window 9", window_coeffs(9)),
+    ("kaiser 9 (0.5)", kaiser_coeffs(9)),
     (f"avg {nopt}", avg_coeffs(nopt)),
-    (f"window {nopt}", window_coeffs(nopt, beta=bopt)),
+    (f"kaiser {nopt} (bopt)", kaiser_coeffs(nopt, beta=bopt)),
+    (f"win sinc {nopt} (bopt)", win_sinc_coeffs(nopt, beta=bopt)),
 )
 
 sweeps = []
