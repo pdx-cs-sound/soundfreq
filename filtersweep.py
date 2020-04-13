@@ -59,28 +59,59 @@ scale = db_scale
 fo = 0
 
 def plot_sweep():
-    myfs, sweep = signal.freqz(filters[fo][1], worN=fsamples)
+    coeffs = filters[fo][1]
+    myfs, sweep = signal.freqz(coeffs, worN=fsamples)
     xs = myfs * nfreq / np.pi
     ys = scale(np.absolute(sweep))
     fplot.clear()
     fplot.plot(xs, ys)
 
-plot_sweep()
+def plot_chirp():
+    coeffs = filters[fo][1]
+    ts = np.linspace(0, 1, sfreq)
+    mychirp  = signal.chirp(ts, 0, 1, nfreq)
+    filtered = signal.convolve(mychirp, coeffs, mode='same')
+    ys = scale(filtered)
+    fplot.clear()
+    fplot.plot(ts, ys)
 
-ampl_mode = "dB"
-def change_mode():
-    global ampl_mode, button, scale, canvas
-    if ampl_mode == "dB":
-        ampl_mode = "linear"
+plot_mode = "freq"
+def plot_cur():
+    if plot_mode == "freq":
+        plot_sweep()
+    elif plot_mode == "chirp":
+        plot_chirp()
+    else:
+        assert False
+
+plot_cur()
+
+scale_mode = "dB"
+def change_scale():
+    global scale_mode, scale_button, scale, canvas
+    if scale_mode == "dB":
+        scale_mode = "linear"
         scale = linear_scale
-    elif ampl_mode == "linear":
-        ampl_mode = "dB"
+    elif scale_mode == "linear":
+        scale_mode = "dB"
         scale = db_scale
     else:
         assert False
-    plot_sweep()
+    plot_cur()
     canvas.draw()
-    button.configure(text=ampl_mode)
+    scale_button.configure(text=scale_mode)
+
+def change_plot():
+    global plot_mode, plot_button, canvas
+    if plot_mode == "freq":
+        plot_mode = "chirp"
+    elif plot_mode == "chirp":
+        plot_mode = "freq"
+    else:
+        assert False
+    plot_cur()
+    canvas.draw()
+    plot_button.configure(text=plot_mode)
 
 filter_order = filters[0][0]
 def change_order(dirn):
@@ -89,7 +120,7 @@ def change_order(dirn):
     assert fo < nfilters
     fo = (fo + nfilters + dirn) % nfilters
     filter_order = filters[fo][0]
-    plot_sweep()
+    plot_cur()
     canvas.draw()
     order.configure(text=filter_order)
 
@@ -112,12 +143,18 @@ forw_button = tkinter.Button(
     command=lambda: change_order(1),
 )
 forw_button.pack(in_=controls, side=LEFT)
-button = tkinter.Button(
+scale_button = tkinter.Button(
     master=window,
-    text=ampl_mode,
-    command=change_mode,
+    text=scale_mode,
+    command=change_scale,
 )
-button.pack(in_=controls, side=LEFT)
+scale_button.pack(in_=controls, side=LEFT)
+plot_button = tkinter.Button(
+    master=window,
+    text=plot_mode,
+    command=change_plot,
+)
+plot_button.pack(in_=controls, side=LEFT)
 order = tkinter.Label(
     master=window,
     text=filter_order,
