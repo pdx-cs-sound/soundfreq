@@ -41,13 +41,6 @@ filters = (
     (f"win sinc {nopt} (bopt)", win_sinc_coeffs(nopt, beta=bopt)),
 )
 
-sweeps = []
-myfs = None
-for name, f in filters:
-    myfs, sweep = signal.freqz(f, worN=fsamples)
-    # print(name, f, sweep, np.absolute(sweep))
-    sweeps.append(np.absolute(sweep))
-myfs = myfs * nfreq / np.pi
 
 size = fsamples
 
@@ -62,15 +55,17 @@ def db_scale(ys):
 #   embedding_in_tk_sgskip.html
 fig = plt.figure(figsize=(12, 8), dpi=100)
 fplot = fig.add_subplot(1, 1, 1)
-xs = myfs
 scale = db_scale
 fo = 0
-def plot_ys():
-    ys = scale(sweeps[fo])
+
+def plot_sweep():
+    myfs, sweep = signal.freqz(filters[fo][1], worN=fsamples)
+    xs = myfs * nfreq / np.pi
+    ys = scale(np.absolute(sweep))
     fplot.clear()
     fplot.plot(xs, ys)
 
-plot_ys()
+plot_sweep()
 
 ampl_mode = "dB"
 def change_mode():
@@ -83,7 +78,7 @@ def change_mode():
         scale = db_scale
     else:
         assert False
-    plot_ys()
+    plot_sweep()
     canvas.draw()
     button.configure(text=ampl_mode)
 
@@ -94,7 +89,7 @@ def change_order(dirn):
     assert fo < nfilters
     fo = (fo + nfilters + dirn) % nfilters
     filter_order = filters[fo][0]
-    plot_ys()
+    plot_sweep()
     canvas.draw()
     order.configure(text=filter_order)
 
