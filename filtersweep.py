@@ -30,6 +30,15 @@ def win_sinc_coeffs(n, beta=0.5):
     sw = sinc * window
     return sw / np.sum(sw)
 
+kopt = kaiser_coeffs(nopt, beta=bopt)
+kmid = len(kopt) // 2
+kinv = -kopt
+kinv[kmid] += 1.0
+# Reversal: does not work yet
+#khalf = kopt[:kmid]
+#khrev = np.flip(khalf)
+#krev = np.append(khrev, [0.0])
+#krev = np.append(krev, khalf)
 filters = (
     ("avg 2", avg_coeffs(2)),
     ("avg 3", avg_coeffs(3)),
@@ -37,7 +46,9 @@ filters = (
     ("avg 9", avg_coeffs(9)),
     ("kaiser 9 (0.5)", kaiser_coeffs(9)),
     (f"avg {nopt}", avg_coeffs(nopt)),
-    (f"kaiser {nopt} (bopt)", kaiser_coeffs(nopt, beta=bopt)),
+    (f"kaiser {nopt} (bopt)", kopt),
+    (f"blocking(i) {nopt} (bopt)", kinv),
+#   (f"blocking(r) {nopt} (bopt)", krev),
     (f"win sinc {nopt} (bopt)", win_sinc_coeffs(nopt, beta=bopt)),
 )
 
